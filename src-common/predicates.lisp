@@ -32,3 +32,6 @@
 
 (defun waterp (tile)
   (typep tile 'water))
+
+(defun nextp (tile)
+  (next-flag tile))

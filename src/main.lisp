@@ -10,17 +10,139 @@
 ;; in the direction is not a water tile.
 (defun do-turn ()
   (logmsg "[do-turn] " (length (my-ants *state*)) " ants~%")
-  (loop for ant in (reverse (my-ants *state*))
+  (calc-distance-to-food)
+  (loop for ant in (my-ants *state*)
         for row = (row ant)
         for col = (col ant)
-        do (loop for dir in '(:north :east :south :west)
-                 for new-location = (new-location row col dir)
-                 for nlrow = (elt new-location 0)
-                 for nlcol = (elt new-location 1)
-                 do (unless (waterp (tile-at nlrow nlcol))
-                      (issue-order row col dir)
-                      (loop-finish)))))
+        do (issue-order-from-tile ant (greedy-tile ant))))
 
+
+;;; Queue
+(defstruct queue (front nil) (rear nil))
+
+(defun enqueue (queue item)
+  (let ((new-cell (list item)))
+    (if (queue-front queue)
+      (setf (cdr (queue-rear queue)) new-cell)
+      (setf (queue-front queue) new-cell))
+    (setf (queue-rear queue) new-cell)))
+
+(defun dequeue (queue)
+  (if (queue-front queue)
+      (prog1
+        (pop (queue-front queue))
+        (unless (queue-front queue)
+          (setf (queue-rear queue) nil)))))
+
+(defun empty-queue? (queue)
+  (not (queue-front queue)))
+
+;;; Anaphoric
+(defmacro anaphoric (op test &body body)
+  `(let ((it ,test))
+     (,op it ,@body)))
+
+(defmacro aif (test then &optional else)
+  `(anaphoric if ,test ,then ,else))
+
+(defmacro aand (first &rest rest)
+  `(anaphoric and ,first ,@rest))
+
+;;; Utils
+
+(defun greedy-tile (tile)
+  (first (sort
+          (remove-if #'(lambda (ti) (or (waterp ti) (antp ti) (nextp tile)))
+                     (neighbor-tiles tile))
+          #'(lambda (a b) (< (or (distance-to-food a) 10000000)
+                             (or (distance-to-food b) 10000000))))))
+
+(defun issue-order-from-tile (before after)
+  (setf (next-flag after) t)
+  (issue-order (row before) (col before) (dir-from-tile before after)))
+
+(defun dir-from-tile (before after)
+  (let ((tiles (neighbor-tiles before)))
+    (cond
+      ((eq (first tiles) after) :north)
+      ((eq (second tiles) after) :east)
+      ((eq (third tiles) after) :south)
+      (t :west))))
+      ;; ((eq (fourth tiles) after) :west)
+      ;; (t (error "not neighbor")))))
+
+(defun calc-distance-to-food ()
+  (let ((queue (make-queue)))
+    (mapc #'(lambda (food) (enqueue queue (vector food 0)))
+          (food *state*))
+    (loop until (empty-queue? queue)
+       do
+         (let* ((v (dequeue queue))
+                (tile (elt v 0))
+                (dist (+ (elt v 1) 1)))
+           (when (not (distance-to-food tile))
+             (if (waterp tile)
+                 (setf (distance-to-food tile) most-positive-fixnum)
+                 (progn
+                   (setf (distance-to-food tile) dist)
+                   (mapc #'(lambda (tile)
+                             (enqueue queue (vector tile (1+ dist))))
+                         (neighbor-tiles tile)))))))))
+
+;; (defun calc-distance-to-food ()
+;;   (let ((queue (make-queue)))
+;;     (mapc #'(lambda (enemy) (enqueue queue (vector enemy 0)))
+;;           (enemy-ant *state*))
+;;     (loop until (empty-queue? queue)
+;;        do
+;;          (let* ((v (dequeue queue))
+;;                 (tile (elt v 0))
+;;                 (dist (+ (elt v 1) 1)))
+;;            (when (not (distance-to-enemy tile))
+;;              (if (waterp tile)
+;;                  (setf (distance-to-enemy tile) most-positive-fixnum)
+;;                  (progn
+;;                    (setf (distance-to-enemy tile) dist)
+;;                    (mapc #'(lambda (tile)
+;;                              (enqueue queue (vector tile (1+ dist))))
+;;                          (neighbor-tiles tile)))))))))
+
+(defun neighbor-tiles (tile)
+  (let ((row (row tile))
+        (col (col tile)))
+    (mapcar #'(lambda (dir)
+                (let* ((nlv (new-location row col dir))
+                       (nlrow (elt nlv 0))
+                       (nlcol (elt nlv 1)))
+                  (tile-at nlrow nlcol)))
+                '(:north :east :south :west))))
+
+;; (defun nearest-tile (row col max-depth pred-target pred-walk)
+;;   (let ((map (make-array 2 (rows *state*) (cols *state*) nil))
+;;         (queue (make-empty-queue)))
+;;     (enqueue-at-end queue (vector row col 0))
+;;     (while (empty-queue? queue)
+;;       (let* ((v (remove-front queue))
+;;              (row (aref v 0))
+;;              (col (aref v 1))
+;;              (depth (aref v 2))
+;;              (v (wrapped-row-col row col))
+;;              (row (aref v 0))
+;;              (col (aref v 1)))
+;;         (unless (aref map row cols)
+;;           (setq (aref map row cols) t)
+;;           (cond
+;;             ((> depth max-depth) nil)
+;;             ((funcall pred-target (tile-at row col)) (return-form nearest-tile depth))
+;;             ((not (funcall pred-walk (tile-at row col))) nil)
+;;             (else
+;;              (enqueue-at-end queue (vector (1+ row) col (1+ depth)))
+;;              (enqueue-at-end queue (vector (1- row) col (1+ depth)))
+;;              (enqueue-at-end queue (vector row (1+ col) (1+ depth)))
+;;              (enqueue-at-end queue (vector row (1- col) (1+ depth)))))))))
+;;   most-positive-fixnum)
+
+;;;
 
 ;;; Main Program
 

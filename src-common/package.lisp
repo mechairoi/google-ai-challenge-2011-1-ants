@@ -7,12 +7,13 @@
   (:export ;; specials
            :*state* :*verbose* :+land+ :2pi
            ;; classes and accessors / readers
-           :ant :food :land :state :water
+           :ant :food :land :state :water :tile
            :attack-radius2 :col :cols :conversion-turn :dead :end-turn
            :error-stream :food :game-map :hp :initial-col :initial-row :input
            :load-time :log-stream :orders :output :pid :row :rows :seen-by
            :spawn-radius2 :start-turn :turn :turn-start-time :turn-time :turns
-           :view-radius2
+           :view-radius2 :distance-to-food :next-flag
+;; :distance-to-enemy :distance-to-myant
            ;; handlers
            :address-in-use :connection-lost :connection-refused :error-handler
            :socket-error-handler :user-interrupt

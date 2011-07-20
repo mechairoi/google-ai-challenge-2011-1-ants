@@ -1,4 +1,4 @@
-#!/usr/bin/sbcl --script
+;; #!/usr/bin/sbcl --script
 
 (declaim (sb-ext:muffle-conditions sb-ext:compiler-note))
 ;(declaim (sb-ext:muffle-conditions style-warning))  ; doesn't work

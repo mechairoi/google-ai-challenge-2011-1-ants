@@ -30,7 +30,9 @@
                   (setf (slot-value *state* 'view-radius2) (par-value line)))))
   (setf (slot-value *state* 'game-map)
         (make-array (list (rows *state*) (cols *state*))
-                    :initial-element +land+)))
+                    :initial-element nil))
+  (reset-game-map)
+)
 
 
 (defun parse-game-state ()
@@ -74,9 +76,11 @@
         for row from 0 below (first dim)
         do (loop for col from 0 below (second dim)
                  for tile-type = (type-of (tile-at row col))
-                 unless (or (landp (tile-at row col))
+                 unless (or ;;(landp (tile-at row col))
                             (waterp (tile-at row col)))
-                   do (setf (tile-at row col) +land+))))
+                   do (setf (tile-at row col)
+                            (make-instance 'tile :row row :col col)))))
+ ;; +land+))))
 
 
 (defun reset-some-state ()

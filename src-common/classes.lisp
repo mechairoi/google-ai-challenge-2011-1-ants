@@ -7,7 +7,12 @@
 
 (defclass tile ()
   ((row :reader row :initarg :row)
-   (col :reader col :initarg :col)))
+   (col :reader col :initarg :col)
+   (distance-to-food :accessor distance-to-food :initarg :distance-to-food :initform nil)
+   (next-flag :accessor next-flag :initarg :next-flag :initform nil)
+   ;; (distance-to-enemy :accessor distance-to-enemy :initarg :distance-to-enemy :initform nil)
+   ;; (distance-to-myant :accessor distance-to-myant :initarg :distance-to-myant :initform nil)
+))
 
 
 (defclass land (tile) ())
