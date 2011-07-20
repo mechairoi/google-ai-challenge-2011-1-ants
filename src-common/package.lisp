@@ -13,7 +13,7 @@
            :load-time :log-stream :orders :output :pid :row :rows :seen-by
            :spawn-radius2 :start-turn :turn :turn-start-time :turn-time :turns
            :view-radius2 :distance-to-food :next-flag
-:distance-to-enemy :distance-to-myant
+           :distance-to-enemy :distance-to-myant
            ;; handlers
            :address-in-use :connection-lost :connection-refused :error-handler
            :socket-error-handler :user-interrupt
