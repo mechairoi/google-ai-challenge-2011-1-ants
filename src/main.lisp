@@ -14,7 +14,9 @@
   (loop for ant in (my-ants *state*)
         for row = (row ant)
         for col = (col ant)
-        do (issue-order-from-tile ant (greedy-tile ant))))
+        do (let ((after (greedy-tile ant)))
+             (if after (issue-order-from-tile ant after)
+                 (setf (next-flag ant) t)))))
 
 
 ;;; Queue
@@ -52,7 +54,7 @@
 
 (defun greedy-tile (tile)
   (first (sort
-          (remove-if #'(lambda (ti) (or (waterp ti) (antp ti) (nextp tile)))
+          (remove-if #'(lambda (ti) (or (waterp ti)  (nextp ti)))
                      (neighbor-tiles tile))
           #'(lambda (a b) (< (or (distance-to-food a) 10000000)
                              (or (distance-to-food b) 10000000))))))

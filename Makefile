@@ -25,7 +25,7 @@ play:
 	--end_wait=0.25 \
 	--verbose \
 	--log_dir game_logs \
-	--turns 600 \
+	--turns 1000 \
 	--map_file /Users/mechairoi/repos/google-ai-challenge-2011-1-ants/tools/maps/symmetric_maps/symmetric_40.map \
 	--log_error \
 	"python /Users/mechairoi/repos/google-ai-challenge-2011-1-ants/tools/sample_bots/python/GreedyBot.py" \
