@@ -210,7 +210,7 @@
   (assert-false (landp (tile-at 3 4))))
 
 (define-test nearby-ants
-  (assert-equal 0 (length (nearby-ants 3 4 0.5)))
+  (assert-equal 0 (length (nearby-ants 2 6 1)))
   (assert-equal 1 (length (nearby-ants 3 4 1)))
   (assert-equal 2 (length (nearby-ants 3 4 5))))
 
