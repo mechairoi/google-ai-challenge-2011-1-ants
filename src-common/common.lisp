@@ -25,8 +25,8 @@
            (type fixnum row1 col1 row2 col2))
   (let* ((drow (abs (- row1 row2)))
          (dcol (abs (- col1 col2)))
-         (minrow (min drow (- (the fixnum (rows *state*)) drow)))
-         (mincol (min dcol (- (the fixnum (cols *state*)) dcol))))
+         (minrow (min drow (- (the fixnum @rows) drow)))
+         (mincol (min dcol (- (the fixnum @cols) dcol))))
     (declare (type fixnum minrow mincol))
     (sqrt (logand most-positive-fixnum
                   (+ (* minrow minrow) (* mincol mincol))))))
@@ -40,8 +40,8 @@
            (type fixnum row1 col1 row2 col2))
   (let* ((drow (abs (- row1 row2)))
          (dcol (abs (- col1 col2)))
-         (minrow (min drow (- (the fixnum (rows *state*)) drow)))
-         (mincol (min dcol (- (the fixnum (cols *state*)) dcol))))
+         (minrow (min drow (- (the fixnum @rows) drow)))
+         (mincol (min dcol (- (the fixnum @cols) dcol))))
     (declare (type fixnum minrow mincol))
     ;(logand most-positive-fixnum (+ (* minrow minrow) (* mincol mincol)))))
     (+ (* minrow minrow) (* mincol mincol))))  ; faster?
@@ -50,8 +50,8 @@
 
 
 (defun errmsg (&rest args)
-  (format (error-stream *state*) (apply #'mkstr args))
-  (force-output (error-stream *state*)))
+  (format @error-stream (apply #'mkstr args))
+  (force-output @error-stream))
 
 
 (defun host2str (host)
@@ -72,8 +72,8 @@
 
 (defun logmsg (&rest args)
   (when *verbose*
-    (format (log-stream *state*) (apply #'mkstr args))
-    (force-output (log-stream *state*))))
+    (format @log-stream (apply #'mkstr args))
+    (force-output @log-stream)))
 
 
 (defun mkstr (&rest args)
@@ -176,10 +176,10 @@
 (defun tile-at (row col)
   (declare (inline aref game-map)
            (optimize (speed 3)))
-  (aref (game-map *state*) row col))
+  (aref @game-map row col))
 
 (defun (setf tile-at) (value row col)
-  (setf (aref (game-map *state*) row col) value))
+  (setf (aref @game-map row col) value))
 
 
 (defun tile-if-reachable (radius2 src-row src-col dst-row dst-col)
@@ -204,7 +204,7 @@
   (declare (inline + - < >= rows)
            (optimize (speed 3))
            (type fixnum row))
-  (let ((rs (the fixnum (rows *state*))))
+  (let ((rs (the fixnum @rows)))
     (cond ((< row 0) (+ rs row))  ; adding negative number
           ((>= row rs) (- row rs))
           (t row))))
@@ -214,7 +214,7 @@
   (declare (inline + - < >= cols)
            (optimize (speed 3))
            (type fixnum col))
-  (let ((cs (the fixnum (cols *state*))))
+  (let ((cs (the fixnum @cols)))
     (cond ((< col 0) (+ cs col))  ; adding negative number
           ((>= col cs) (- col cs))
           (t col))))
@@ -225,8 +225,8 @@
   (declare (inline + - < >= cols rows vector)
            (optimize (speed 3))
            (type fixnum row col))
-  (let ((rs (the fixnum (rows *state*)))
-        (cs (the fixnum (cols *state*))))
+  (let ((rs (the fixnum @rows))
+        (cs (the fixnum @cols)))
     (vector (cond ((< row 0) (+ rs row))  ; adding negative number
                   ((>= row rs) (- row rs))
                   (t row))

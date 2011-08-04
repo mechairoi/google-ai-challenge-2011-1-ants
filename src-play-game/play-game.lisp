@@ -277,7 +277,7 @@
                  (case c
                    (#\. +land+)
                    (#\% (make-instance 'water :row row :col col
-                          :seen-by (make-array (length (bots *state*))
+                          :seen-by (make-array (length @bots)
                                                :element-type 'boolean
                                                :initial-element nil)))
                    (#\* (let ((food (make-instance 'food :row row :col col
@@ -311,21 +311,21 @@
 
 (defun players-score-string (&key (sep " "))
   (with-output-to-string (s)
-    (loop for bot across (bots *state*)
+    (loop for bot across @bots
           for i from 1
           do (princ (last1 (scores bot)) s)
-             (when (< i (length (bots *state*)))
+             (when (< i (length @bots))
                (princ sep s)))))
 
 
 (defun players-status-string (&key (sep " ") (quotes nil))
   (with-output-to-string (s)
-    (loop for bot across (bots *state*)
+    (loop for bot across @bots
           for i from 1
           do (when quotes (princ "\"" s))
              (princ (status bot) s)
              (when quotes (princ "\"" s))
-             (when (< i (length (bots *state*)))
+             (when (< i (length @bots))
                (princ sep s)))))
 
 
@@ -349,11 +349,11 @@
         (slot-value *state* 'spawn-radius2)  (getopt-nr  "spawnradius2")
         (slot-value *state* 'turn-time)      (getopt-nr  "turntime")
         (slot-value *state* 'view-radius2)   (getopt-nr  "viewradius2"))
-  (unless (member (food-method *state*) '(:none :random))
+  (unless (member @food-method '(:none :random))
     (help)
-    (errmsg "~%Error: unknown food method: " (food-method *state*) "~%")
+    (errmsg "~%Error: unknown food method: " @food-method "~%")
     (quit))
-  (unless (map-file *state*)
+  (unless @map-file
     (help)
     (quit)))
   ;; (remainder) is processed in (start-bots)
@@ -368,7 +368,7 @@
     ; TODO check for illegal moves here
     (push (make-order :bot-id bot-id :direction dir :src-row row :src-col col
                       :dst-row (elt nl 0) :dst-col (elt nl 1))
-          (orders *state*))))
+          @orders)))
 
 
 (defun receive-bot-orders (bot)
@@ -552,21 +552,21 @@
 (defun spawn-food ()
   (when (equal @food-method :none)
     (return-from spawn-food))
-  (let ((food (loop for row from 0 below (rows *state*)
-                    append (loop for col from 0 below (cols *state*)
-                                 for tile = (aref (game-map *state*) row col)
+  (let ((food (loop for row from 0 below @rows
+                    append (loop for col from 0 below @cols
+                                 for tile = (aref @game-map row col)
                                  when (typep tile 'land)
                                    collect (vector row col))
                       into result
-                    finally (return (loop repeat (random (n-players *state*))
+                    finally (return (loop repeat (random @n-players)
                                           collect (random-elt result))))))
     (loop for rc in food
           for row = (elt rc 0)
           for col = (elt rc 1)
           do (let ((food (make-instance 'food :row row :col col
-                                        :start-turn (turn *state*))))
+                                        :start-turn @turn)))
                (push food (slot-value *state* 'food))
-               (setf (aref (game-map *state*) row col) food)))))
+               (setf (aref @game-map row col) food)))))
 
 
 (defun start-bots ()
@@ -579,7 +579,7 @@
 
 (defun turn-time-left-p (turn-start-time)
   (<= (- (wall-time) turn-start-time)
-      (/ (turn-time *state*) 1000)))
+      (/ @turn-time 1000)))
 
 
 (defun update-bot-status ()
@@ -677,8 +677,7 @@
 (defun debug-output ()
   (logmsg "===============================================================~%")
   (describe *state*)
-  (loop for bot across (bots *state*)
-        do (describe bot))
+  (loop for bot across @bots do (describe bot))
   (logmsg "===============================================================~%"))
 
 
@@ -694,4 +693,4 @@
   (logmsg "score " (players-score-string) "~%")
   (logmsg "status " (players-status-string) "~%")
   (save-replay)
-  (sleep (end-wait *state*)))
+  (sleep @end-wait))
