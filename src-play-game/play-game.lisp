@@ -101,34 +101,6 @@
                               (slot-value ant-b 'end-turn) @turn))))))
 
 
-;; TODO remove (it's done in move-ants now)
-(defun check-positions ()
-  (loop for order in (copy-seq @orders)
-        for bot-id = (order-bot-id order)
-        for row = (order-src-row order)
-        for col = (order-src-col order)
-        do (when (/= bot-id (pid (tile-at row col)))
-             (logmsg "Bot " bot-id " issued an order for a position it "
-                     "doesn't occupy. Ignoring...~%")
-             (logmsg "o: " order "~%")
-             (logmsg "p: " (pid (tile-at row col)) "~%")
-             ;; TODO use DELETE?
-             (setf @orders (remove order @orders)))))
-
-
-;; TODO remove (it's done in move-ants now)
-(defun check-water ()
-  (loop for order in (copy-seq @orders)
-        for new-location = (new-location (order-src-row order)
-                                 (order-src-col order) (order-direction order))
-        do (when (waterp (tile-at (elt new-location 0) (elt new-location 1)))
-             ;; TODO report row col dir
-             (logmsg "Bot " (order-bot-id order) " ordered an ant into water. "
-                     "Ignoring...~%")
-             ;; TODO use DELETE?
-             (setf @orders (remove order @orders)))))
-
-
 ;; TODO remove? (not used in move-ants anymore)
 (defun clear-dead-ants ()
   (loop for row from 0 below @rows
@@ -150,30 +122,15 @@
   (setf @orders nil)
   ;(revitalize-ants)
   (loop for bot across @bots do (setf (thread-status bot) :new-turn))
-  ;; TODO could use some work (and its own function)
-  (loop with bots-ready = 0
-        until (= bots-ready @n-players)
-        do (sleep +sleep-time+)
-           (loop with n-ready = 0
-                 for bot across @bots
-                 do (when (equal (thread-status bot) :ready)
-                      (incf n-ready))
-                 finally (setf bots-ready n-ready)))
+  (wait-for-bots)
   (setf @orders (loop for bot across @bots append (orders bot)
                       do (setf (thread-status bot) :wait)))
   (move-ants)
-  (battle-resolution)  ; !!! optimisations up and including to here !!!
+  (battle-resolution)
+  ;; TODO optimise and clean up: SPAWN-ANTS, SPAWN-FOOD and UPDATE-BOT-STATUS
   (spawn-ants)
-  ;; TODO move check into spawn-food
-  (unless (equal @food-method :none) (spawn-food))
-  ;; TODO move into update-bot-status function
-  (loop for bot across @bots
-        do (when (and (equal "survived" (status bot))
-                      (= 0 (length (ants bot))))
-             (format @log-stream "turn ~4D bot ~D eliminated~%"
-                     @turn (bot-id bot))
-             (force-output @log-stream)
-             (setf (status bot) "eliminated"))))
+  (spawn-food)
+  (update-bot-status))
 
 
 (defun getopt (name)
@@ -185,17 +142,12 @@
 
 (defun getopt-key (name)
   "Wrapper for CLON:GETOPT. Returns value of option NAME as a keyword."
-  (intern (string-upcase (if (> (length name) 1)
-                             (com.dvlsoft.clon:getopt :long-name name)
-                             (com.dvlsoft.clon:getopt :short-name name)))
-          :keyword))
+  (intern (string-upcase (getopt name)) :keyword))
 
 
 (defun getopt-nr (name)
   "Wrapper for CLON:GETOPT. Returns option NAME as an integer."
-  (parse-number (if (> (length name) 1)
-                    (com.dvlsoft.clon:getopt :long-name name)
-                    (com.dvlsoft.clon:getopt :short-name name))))
+  (parse-number (getopt name)))
 
 
 (defun init-scores-for-new-turn ()
@@ -241,8 +193,6 @@
 ;; into the loop.
 (defun move-ants ()
   ;(clear-dead-ants)  ; TODO needed?
-  ;(check-positions)
-  ;(check-water)
   (check-collisions)
   (loop for order in @orders
         for bot-id = (order-bot-id order)
@@ -452,125 +402,6 @@
                           :input :stream :output :stream)))
 
 
-;; See: https://github.com/aichallenge/aichallenge/wiki/Ants-replay-format
-;; Perhaps I should have used a JSON lib :-|
-(defun save-replay (&optional (round 0))
-  (with-open-file (f (mkstr (replay-dir *state*) round ".replay")
-                   :direction :output :if-exists :supersede)
-    (format f (mkstr "{~%"
-                     "    \"challenge\": \"ants\",~%"
-                     "    \"game_id\": 0,~%"
-                     "    \"location\": \"localhost\",~%"
-                     "    \"player_info\": ["))
-    (loop for i from 0 below (n-players *state*)
-          do (princ "{}" f)
-             (when (< i (- (n-players *state*) 1))
-               (princ ", " f)))
-    (format f (mkstr "],~%"
-                     "    \"rank\": ["))
-    (loop with ranking = (loop for bot across (bots *state*)
-                               collect (last1 (scores bot)) into scores
-                               finally (return (sort (remove-duplicates scores)
-                                                     #'>)))
-          for bot across (bots *state*)
-          for i from 1
-          do (princ (position (last1 (scores bot)) ranking) f)
-             (when (< i (n-players *state*))
-               (princ ", " f)))
-    (format f (mkstr "],~%"
-                     "    \"replayformat\": \"json\",~%"
-                     "    \"replaydata\": {~%"
-                     "        \"revision\": 2,~%"
-                     "        \"players\": " (n-players *state*) ",~%"
-                     "        \"loadtime\": " (load-time *state*) ",~%"
-                     "        \"turntime\": " (turn-time *state*) ",~%"
-                     "        \"turns\": " (turns *state*) ",~%"
-                     "        \"viewradius2\": " (view-radius2 *state*) ",~%"
-                   "        \"attackradius2\": " (attack-radius2 *state*) ",~%"
-                     "        \"spawnradius2\": " (spawn-radius2 *state*) ",~%"
-                     "        \"map\": {~%"
-                     "             \"rows\": " (rows *state*) ",~%"
-                     "             \"cols\": " (cols *state*) ",~%"
-                     "             \"data\": [~%"))
-    (loop for row from 0 below (rows *state*)
-          do (format f "                     \"")
-             (loop for col from 0 below (cols *state*)
-                   for tile = (aref (game-map *state*) row col)
-                   for type = (type-of tile)
-                   do (case type
-                        (land  (princ #\. f))
-                        (water (princ #\% f))
-                        (food  (princ #\* f))
-                        (ant (if (dead tile)
-                                 (princ (code-char (+ (pid tile) 65)) f)
-                                 (princ (code-char (+ (pid tile) 97)) f)))
-                        (otherwise (error "Unknown tile type: ~S (~D,~D)"
-                                          tile row col))))
-             (if (< (+ row 1) (rows *state*))
-                 (format f "\",~%")
-                 (format f "\"~%")))
-    (format f (mkstr "             ]~%"
-                     "        },~%"
-                     "        \"ants\": [~%"))
-    (loop with food-length = (+ (length (food *state*))
-                                (length (contested-food *state*)))
-          for bot across (bots *state*)
-          for i from 1
-          do (loop for ant in (append (reverse (ants bot))
-                                      (reverse (dead-ants bot)))
-                   for j from 1
-                   do (format f "            [ ~D, ~D, ~D, ~D, ~D, ~D, ~S ]~A~%"
-                              (initial-row ant)
-                              (initial-col ant)
-                              (start-turn ant)
-                              (conversion-turn ant)
-                              (if (dead ant)
-                                  (end-turn ant)
-                                  (+ (turns *state*) 1))
-                              (pid ant)
-                              (coerce (orders ant) 'string)
-                              (if (or (< i (length (bots *state*)))
-                                      (< j (+ (length (ants bot))
-                                              (length (dead-ants bot))))
-                                      (> food-length 0))
-                                   ","
-                                   ""))))
-    (loop with food-length = (+ (length (food *state*))
-                                (length (contested-food *state*)))
-          for food in (append (reverse (food *state*))
-                              (reverse (contested-food *state*)))
-          for i from 1
-          do (format f "            [ ~D, ~D, ~D, ~D ]~A~%"
-                     (row food)
-                     (col food)
-                     (start-turn food)
-                     (if (= 0 (conversion-turn food))
-                         (+ (turns *state*) 1)
-                         (conversion-turn food))
-                     (if (< i food-length) "," "")))
-    (format f (mkstr "        ],~%"
-                     "        \"scores\": [~%"))
-    (loop for bot across (bots *state*)
-          for i from 1
-          do (princ "            [" f)
-             (loop for n across (scores bot)
-                   for j from 1
-                   do (princ n f)
-                      (when (< j (length (scores bot)))
-                        (princ "," f)))
-             (princ "]" f)
-             (when (< i (length (bots *state*)))
-               (princ "," f))
-             (terpri f))
-    (format f (mkstr "        ]~%"
-                     "    },~%"
-                     "    \"score\": [~A],~%"
-                     "    \"status\": [~A]~%")
-            (players-score-string :sep ", ")
-            (players-status-string :sep ", " :quotes t))
-    (format f (mkstr "}~%"))))
-
-
 (defun send-ant (stream row col bot-id tile)
   (declare (inline + < = > pid princ write-string terpri)
            (optimize (speed 3))
@@ -719,6 +550,8 @@
 ;; and randomly picks a random number of tiles between 0 and the number of
 ;; players (-1?).
 (defun spawn-food ()
+  (when (equal @food-method :none)
+    (return-from spawn-food))
   (let ((food (loop for row from 0 below (rows *state*)
                     append (loop for col from 0 below (cols *state*)
                                  for tile = (aref (game-map *state*) row col)
@@ -749,12 +582,33 @@
       (/ (turn-time *state*) 1000)))
 
 
+(defun update-bot-status ()
+  (loop for bot across @bots
+        do (when (and (equal "survived" (status bot))
+                      (= 0 (length (ants bot))))
+             (format @log-stream "turn ~4D bot ~D eliminated~%"
+                     @turn (bot-id bot))
+             (force-output @log-stream)
+             (setf (status bot) "eliminated"))))
+
+
 ;; TODO scoring for ants that died this turn
 (defun update-immobile-ant-orders ()
   (loop for ant in (all-ants)
         for orders = (orders ant)
         when (< (length orders) (- @turn (conversion-turn ant)))
           do (vector-push-extend #\- orders)))
+
+
+(defun wait-for-bots ()
+  (loop with bots-ready = 0
+        until (= bots-ready @n-players)
+        do (sleep +sleep-time+)
+           (loop with n-ready = 0
+                 for bot across @bots
+                 do (when (equal (thread-status bot) :ready)
+                      (incf n-ready))
+                 finally (setf bots-ready n-ready))))
 
 
 (defun wait-for-new-turn (bot)
