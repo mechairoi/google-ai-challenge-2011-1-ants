@@ -1,6 +1,4 @@
 ;;;; proxy-bot.lisp
-;;;;
-;;;; TODO use STATE class
 
 (in-package :ants-proxy-bot)
 
@@ -9,13 +7,10 @@
 
 (defparameter *verbose* nil)
 
-(defparameter *input* *standard-input*)
-(defparameter *output* *standard-output*)
-
 (defparameter *host* #-allegro #(127 0 0 1) #+allegro "localhost")
 (defparameter *port* 41807)
 
-(defparameter +version+ "0.1a")
+(defparameter +version+ "0.2")
 
 
 ;;; Utility Functions
@@ -55,6 +50,9 @@
 
 (defsynopsis ()
   (text :contents "Proxy bot for Ant Wars.
+
+Currently playgame.py doesn't like the \"-v\" switch.  So you'll need to
+compile a proxy-bot with *verbose* set to T if you want logging.
 ")
   (group (:header "Connection options:")
     (stropt :short-name "p" :long-name "port" :argument-name "PORT"
@@ -85,11 +83,11 @@
            (setf socket (socket-connect *host* *port*))
            (loop with end-of-game-p = nil
                  with stream = (socket-stream socket)
-                 while (peek-char nil *input* nil)  ; run until we receive EOF
+                 while (peek-char nil *standard-input* nil)  ; run until EOF
                  for turn from 0
                  do (logmsg "--- turn: " turn " ---~%")
                     (logmsg "Sending game state...~%")
-                    (loop for line = (read-line *input* nil)
+                    (loop for line = (read-line *standard-input* nil)
                           until (or (starts-with line "go")
                                     (starts-with line "ready"))
                           do (when line
@@ -108,12 +106,12 @@
                                     end-of-game-p)
                           do (when line
                                (logmsg "| " line "~%")
-                               (write-line line *output*)
-                               (force-output *output*))
+                               (write-line line *standard-output*)
+                               (force-output *standard-output*))
                           finally (when line
                                     (logmsg "| " line "~%")
-                                    (write-line line *output*)
-                                    (force-output *output*)))
+                                    (write-line line *standard-output*)
+                                    (force-output *standard-output*)))
                     (when end-of-game-p
                       (loop-finish))))
       (ignore-errors (socket-close socket))))
